@@ -97,7 +97,7 @@ description: A csharp sample app that chats with your data using OpenAI and AI S
 - **Azureアカウント** - Azureが初めての場合は、[無料のAzureアカウント](https://aka.ms/free)を取得すると、開始するための無料のAzureクレジットが得られます。
 - **Azureアカウントの権限** - Azureアカウントには、[ユーザーアクセス管理者](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#user-access-administrator)や[所有者](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#owner)などの`Microsoft.Authorization/roleAssignments/write`権限が必要です。
 
-> [!WARNING]<br>
+> [!WARNING]
 > デフォルトでは、このサンプルは月額コストが発生するAzure Container AppとAzure AI Searchリソース、およびドキュメントページごとにコストが発生するAzure AI Document Intelligenceリソースを作成します。infraフォルダー配下のパラメータファイルを変更することで、これらのコストを回避するために無料版に切り替えることができます（ただし、考慮すべき制限があります。たとえば、サブスクリプションごとに無料のAzure AI Searchリソースは1つまで、無料のAzure AI Document Intelligenceリソースは各ドキュメントの最初の2ページのみを分析します）。
 
 ### コスト見積もり
@@ -139,20 +139,20 @@ GitHub Codespacesを使用してこのリポジトリを仮想的に実行でき
 - [.NET 8](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [Git](https://git-scm.com/downloads)
 - [Powershell 7+ (pwsh)](https://github.com/powershell/powershell) - Windowsユーザーのみ。
-  
-   > **重要**: 
-   > PowerShellコマンドから`pwsh.exe`を実行できることを確認してください。失敗する場合は、PowerShellをアップグレードする必要がある可能性があります。
+
+> [!IMPORTANT]
+> PowerShellコマンドから`pwsh.exe`を実行できることを確認してください。失敗する場合は、PowerShellをアップグレードする必要がある可能性があります。
 
 - [Docker](https://www.docker.com/products/docker-desktop/)
 
-   > **重要**:
-   > `azd`のプロビジョニング/デプロイコマンドを実行する前に、Dockerが実行されていることを確認してください。
+> [!IMPORTANT]
+> `azd`のプロビジョニング/デプロイコマンドを実行する前に、Dockerが実行されていることを確認してください。
 
 その後、以下のコマンドを実行して、プロジェクトをローカル環境に取得します:
 
-   1. `azd auth login`を実行
-   1. リポジトリをクローンするか、`azd init -t azure-search-openai-demo-csharp`を実行
-   1. `azd env new azure-search-openai-demo-csharp`を実行
+1. `azd auth login`を実行
+1. リポジトリをクローンするか、`azd init -t azure-search-openai-demo-csharp`を実行
+1. `azd env new azure-search-openai-demo-csharp`を実行
 
 ### デプロイ
 
@@ -161,17 +161,17 @@ GitHub Codespacesを使用してこのリポジトリを仮想的に実行でき
 [📺 ライブストリーム: CodeSpacesでゼロからデプロイ](https://youtu.be/TORUsRNimM0)
 [📺 ライブストリーム: Windows 11でゼロからデプロイ](https://youtu.be/wgSnkxGH2Sk?si=C4zAbLKhK3LoAS43)
 
-> **重要**:
+> [!IMPORTANT]
 > `azd`のプロビジョニング/デプロイコマンドを実行する前に、Dockerが実行されていることを確認してください。
 
 既存のAzureサービスがなく、新規デプロイから始めたい場合は、以下のコマンドを実行します。
 
 1. `azd up`を実行 - これによりAzureリソースがプロビジョニングされ、`./data`フォルダーにあるファイルに基づいて検索インデックスを構築することを含め、このサンプルがそれらのリソースにデプロイされます。
-   - デプロイ先の地域については、このサンプルで使用されるモデルを現在サポートしている地域は**米国東部**です。最新の地域とモデルのリストについては、[こちら](https://learn.microsoft.com/azure/cognitive-services/openai/concepts/models)を確認してください。
-   - 複数のAzureサブスクリプションにアクセスできる場合は、使用するサブスクリプションを選択するよう求められます。1つのサブスクリプションのみにアクセスできる場合は、自動的に選択されます。
+  - デプロイ先の地域については、このサンプルで使用されるモデルを現在サポートしている地域は**米国東部**です。最新の地域とモデルのリストについては、[こちら](https://learn.microsoft.com/azure/cognitive-services/openai/concepts/models)を確認してください。
+  - 複数のAzureサブスクリプションにアクセスできる場合は、使用するサブスクリプションを選択するよう求められます。1つのサブスクリプションのみにアクセスできる場合は、自動的に選択されます。
 
-   > **注意**:
-   > このアプリケーションは`gpt-4o-mini`モデルを使用します。デプロイする地域を選択する際は、その地域で利用可能であることを確認してください(例: EastUS)。詳細については、[Azure OpenAI Serviceドキュメント](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models#standard-deployment-model-availability)を参照してください。
+> [!CAUTION]
+> このアプリケーションは`gpt-4o-mini`モデルを使用します。デプロイする地域を選択する際は、その地域で利用可能であることを確認してください(例: EastUS)。詳細については、[Azure OpenAI Serviceドキュメント](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models#standard-deployment-model-availability)を参照してください。
 
 1. アプリケーションが正常にデプロイされると、コンソールにURLが出力されます。そのURLをクリックして、ブラウザでアプリケーションを操作します。
 
@@ -179,7 +179,7 @@ GitHub Codespacesを使用してこのリポジトリを仮想的に実行でき
 
 !['azd upの実行結果'](assets/endpoint.png)
 
-> [!NOTE]:
+> [!NOTE]
 > アプリケーションが完全にデプロイされるまでに数分かかる場合があります。
 > アプリケーションがデプロイされた後、ベクトルデータベースに追加するドキュメントを処理するのにも数分かかります。
 
@@ -193,33 +193,33 @@ Azureで使用したい既存のリソースがある場合は、以下の`azd`�
 1. `azd env set AZURE_OPENAI_EMBEDDING_DEPLOYMENT {既存の埋め込みモデルデプロイの名前}`を実行。埋め込みモデルデプロイがデフォルトの`embedding`でない場合のみ必要です。
 1. `azd up`を実行
 
-> [!NOTE]<br>
+> [!NOTE]
 > 既存のSearchおよびStorageアカウントも使用できます。既存のリソースを構成するために`azd env set`に渡す環境変数のリストについては、`./infra/main.parameters.json`を参照してください。
 
 #### リポジトリのローカルクローンのデプロイまたは再デプロイ
 
-> [!IMPORTANT]<br>
+> [!IMPORTANT]
 > `azd`のプロビジョニング/デプロイコマンドを実行する前に、Dockerが実行されていることを確認してください。
 
 - `azd up`を実行
 
 #### App Spacesを使用したリポジトリのデプロイ
 
-> [!NOTE]<br>
+> [!NOTE]
 > リポジトリにAZDでサポートされているbicepファイルがあることを確認し、手動でトリガーできる(初期デプロイ用)、またはコード変更時(最新の変更で自動的に再デプロイ)にトリガーできる初期のGitHub Actions Workflowファイルを追加してください。
 > リポジトリをApp Spacesと互換性のあるものにするには、AZDが適切なタグを持つ既存のリソースグループにデプロイできるように、メインのbicepとメインパラメータファイルに変更を加える必要があります。
 
 1. App SpacesがGitHub Actions workflowファイルで設定した環境変数から値を読み取るために、メインパラメータファイルにAZURE_RESOURCE_GROUPを追加します。
    ```json
    "resourceGroupName": {
-      "value": "${AZURE_RESOURCE_GROUP}"
-    }
+   "value": "${AZURE_RESOURCE_GROUP}"
+   }
    ```
 2. App SpacesがGitHub Actions workflowファイルで設定した環境変数から値を読み取るために、メインパラメータファイルにAZURE_TAGSを追加します。
    ```json
    "tags": {
       "value": "${AZURE_TAGS}"
-    }
+   }
    ```
 3. App Spacesによって設定される値を読み取るために、メインbicepファイルでリソースグループとタグのサポートを追加します。
    ```bicep
@@ -241,7 +241,7 @@ Azureで使用したい既存のリソースがある場合は、以下の`azd`�
 
 #### ローカルでの実行
 
-> [!IMPORTANT]<br>
+> [!IMPORTANT]
 > `azd`のプロビジョニング/デプロイコマンドを実行する前に、Dockerが実行されていることを確認してください。
 
 1. `azd auth login`を実行
@@ -380,7 +380,7 @@ azd env set AZD_PREPDOCS_RAN false # 新しいフィールドでドキュメン�
 - [Original Blazor App](https://github.com/IEvangelist/blazor-azure-openai)
 
 
-> [!NOTE]<br>
+> [!NOTE]
 > このデモで使用されているPDFドキュメントには、言語モデル(Azure OpenAI Service)を使用して生成された情報が含まれています。これらのドキュメントに含まれる情報はデモンストレーション目的のみであり、Microsoftの意見や信念を反映するものではありません。Microsoftは、このドキュメントに含まれる情報の完全性、正確性、信頼性、適合性、または可用性について、明示的または黙示的を問わず、いかなる表明または保証も行いません。すべての権利はMicrosoftに帰属します。
 
 
