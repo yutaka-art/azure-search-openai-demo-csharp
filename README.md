@@ -83,7 +83,7 @@ description: A csharp sample app that chats with your data using OpenAI and AI S
 
 ## アプリケーションアーキテクチャ
 
-- **User interface** - The application’s chat interface is a [Blazor WebAssembly](https://learn.microsoft.com/aspnet/core/blazor/) application. このインターフェースは、ユーザーのクエリを受け入れ、リクエストをアプリケーションバックエンドにルーティングし、生成された応答を表示します。
+- **ユーザーインタフェース** - アプリケーションのインタフェースは [Blazor WebAssembly](https://learn.microsoft.com/aspnet/core/blazor/) で行います。 このインターフェースは、ユーザーのクエリを受け入れ、リクエストをアプリケーションバックエンドにルーティングし、生成された応答を表示します。
 - **バックエンド** - アプリケーションバックエンドは[ASP.NET Core Minimal API](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/overview). バックエンドはBlazor静的Webアプリケーションをホストし、異なるサービス間のインタラクションをオーケストレーションします。このアプリケーションで使用されるサービスには以下が含まれます:
    - [**Azure AI Search**](https://learn.microsoft.com/azure/search/search-what-is-azure-search) – Azure Storage Accountに保存されたデータからドキュメントをインデックス化します。これにより、 [vector search](https://learn.microsoft.com/azure/search/search-get-started-vector) 機能を使用してドキュメントを検索できるようになります。 
    - [**Azure OpenAI Service**](https://learn.microsoft.com/azure/ai-services/openai/overview) – 応答を生成するための大規模言語モデルを提供します。 [Semantic Kernel](https://learn.microsoft.com/semantic-kernel/whatissk) は、Azure OpenAI Serviceと組み合わせて、より複雑なAIワークフローをオーケストレーションするために使用されます。
@@ -193,7 +193,7 @@ Azureで使用したい既存のリソースがある場合は、以下の`azd`�
 1. `azd env set AZURE_OPENAI_EMBEDDING_DEPLOYMENT {既存の埋め込みモデルデプロイの名前}`を実行。埋め込みモデルデプロイがデフォルトの`embedding`でない場合のみ必要です。
 1. `azd up`を実行
 
-> [!NOTE]<br> 
+> [!NOTE]<br>
 > 既存のSearchおよびStorageアカウントも使用できます。既存のリソースを構成するために`azd env set`に渡す環境変数のリストについては、`./infra/main.parameters.json`を参照してください。
 
 #### リポジトリのローカルクローンのデプロイまたは再デプロイ
