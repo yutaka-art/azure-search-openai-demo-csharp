@@ -389,3 +389,19 @@ azd env set AZD_PREPDOCS_RAN false # 新しいフィールドでドキュメン�
 **_質問_**: Azure AI Searchが大きなドキュメントの検索をサポートしているのに、なぜPDFをチャンクに分割する必要があるのですか？
 
 **_回答_**: チャンキングにより、トークン制限のためにOpenAIに送信する情報量を制限できます。コンテンツを分割することで、OpenAIに挿入できる潜在的なテキストチャンクを簡単に見つけることができます。使用するチャンキング手法は、テキストのスライディングウィンドウを活用しており、1つのチャンクを終了する文が次のチャンクを開始するようになっています。これにより、テキストのコンテキストを失う可能性を減らすことができます。
+
+
+> [!NOTE]
+> Highlights information that users should take into account, even when skimming.
+
+> [!TIP]
+> Optional information to help a user be more successful.
+
+> [!IMPORTANT]
+> Crucial information necessary for users to succeed.
+
+> [!WARNING]
+> Critical content demanding immediate user attention due to potential risks.
+
+> [!CAUTION]
+> Negative potential consequences of an action.
