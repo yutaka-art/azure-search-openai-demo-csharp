@@ -380,8 +380,9 @@ azd env set AZD_PREPDOCS_RAN false # 新しいフィールドでドキュメン�
 - [Original Blazor App](https://github.com/IEvangelist/blazor-azure-openai)
 
 
-> [!NOTE]
+> [!NOTE]<br>
 > このデモで使用されているPDFドキュメントには、言語モデル(Azure OpenAI Service)を使用して生成された情報が含まれています。これらのドキュメントに含まれる情報はデモンストレーション目的のみであり、Microsoftの意見や信念を反映するものではありません。Microsoftは、このドキュメントに含まれる情報の完全性、正確性、信頼性、適合性、または可用性について、明示的または黙示的を問わず、いかなる表明または保証も行いません。すべての権利はMicrosoftに帰属します。
+
 
 ### FAQ
 
