@@ -68,10 +68,6 @@ description: A csharp sample app that chats with your data using OpenAI and AI S
 - [Transform your business with smart .NET apps powered by Azure and ChatGPT blog post](https://aka.ms/build-dotnet-ai-blog)
 - [Build Intelligent Apps with .NET and Azure - Build Session](https://build.microsoft.com/sessions/f8f953f3-2e58-4535-92ae-5cb30ef2b9b0)
 
-ご意見をお聞かせください！インテリジェントアプリの構築に興味がある、または現在構築中ですか？数分でアンケートにご協力ください。
-
-[**アンケートに回答する**](https://aka.ms/dotnet-build-oai-survey)
-
 ## 機能
 
 - 音声チャット、チャット、Q&Aインターフェース
