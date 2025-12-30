@@ -1,5 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using Azure.AI.OpenAI;
+using OpenAI;
+using OpenAI.Chat;
+
 namespace MinimalApi.Extensions;
 
 internal static class ServiceCollectionExtensions
@@ -58,20 +62,38 @@ internal static class ServiceCollectionExtensions
             var useAOAI = config["UseAOAI"] == "true";
             if (useAOAI)
             {
-                var azureOpenAiServiceEndpoint = config["AzureOpenAiServiceEndpoint"];
-                ArgumentNullException.ThrowIfNullOrEmpty(azureOpenAiServiceEndpoint);
-
-                var openAIClient = new OpenAIClient(new Uri(azureOpenAiServiceEndpoint), s_azureCredential);
-
-                return openAIClient;
+                // For Azure OpenAI, we don't need the OpenAIClient from OpenAI library
+                // We'll use AzureOpenAIClient instead
+                throw new InvalidOperationException("Use AzureOpenAIClient for Azure OpenAI services");
             }
             else
             {
                 var openAIApiKey = config["OpenAIApiKey"];
                 ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
 
-                var openAIClient = new OpenAIClient(openAIApiKey);
+                var openAIClient = new OpenAI.OpenAIClient(openAIApiKey);
                 return openAIClient;
+            }
+        });
+
+        services.AddSingleton<AzureOpenAIClient>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfiguration>();
+            var useAOAI = config["UseAOAI"] == "true";
+            if (useAOAI)
+            {
+                var azureOpenAiServiceEndpoint = config["AzureOpenAiServiceEndpoint"];
+                ArgumentNullException.ThrowIfNullOrEmpty(azureOpenAiServiceEndpoint);
+
+                var azureOpenAIClient = new AzureOpenAIClient(new Uri(azureOpenAiServiceEndpoint), s_azureCredential);
+
+                return azureOpenAIClient;
+            }
+            else
+            {
+                // For non-Azure OpenAI, we need to use OpenAIClient wrapped in AzureOpenAIClient
+                // But AzureOpenAIClient doesn't support OpenAI directly, so we'll need to handle this differently
+                throw new InvalidOperationException("AzureOpenAIClient doesn't support OpenAI API key directly. Use OpenAIClient instead.");
             }
         });
 
@@ -80,7 +102,7 @@ internal static class ServiceCollectionExtensions
         {
             var config = sp.GetRequiredService<IConfiguration>();
             var useVision = config["UseVision"] == "true";
-            var openAIClient = sp.GetRequiredService<OpenAIClient>();
+            var azureOpenAIClient = sp.GetRequiredService<AzureOpenAIClient>();
             var searchClient = sp.GetRequiredService<ISearchService>();
             if (useVision)
             {
@@ -89,11 +111,11 @@ internal static class ServiceCollectionExtensions
                 var httpClient = sp.GetRequiredService<IHttpClientFactory>().CreateClient();
                 
                 var visionService = new AzureComputerVisionService(httpClient, azureComputerVisionServiceEndpoint, s_azureCredential);
-                return new ReadRetrieveReadChatService(searchClient, openAIClient, config, visionService, s_azureCredential);
+                return new ReadRetrieveReadChatService(searchClient, azureOpenAIClient, config, visionService, s_azureCredential);
             }
             else
             {
-                return new ReadRetrieveReadChatService(searchClient, openAIClient, config, tokenCredential: s_azureCredential);
+                return new ReadRetrieveReadChatService(searchClient, azureOpenAIClient, config, tokenCredential: s_azureCredential);
             }
         });
 

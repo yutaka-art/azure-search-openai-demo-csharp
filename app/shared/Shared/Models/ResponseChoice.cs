@@ -1,7 +1,9 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.AI.OpenAI;
+using OpenAI.Chat;
 
 namespace Shared.Models;
 
@@ -45,8 +47,11 @@ public record ResponseChoice(
     [property: JsonPropertyName("citationBaseUrl")] string CitationBaseUrl)
 {
     [JsonPropertyName("content_filter_results")]
-    public ContentFilterResult? ContentFilterResult { get; set; }
+    public JsonElement? ContentFilterResult { get; set; }
 
+    // Future enhancement: When Azure OpenAI SDK 2.1.0 provides proper content filter types,
+    // consider replacing JsonElement with the appropriate strongly-typed model
+    // Example: public ContentFilterResults? ContentFilterResult { get; set; }
 }
 
 public record ChatAppResponse(ResponseChoice[] Choices);

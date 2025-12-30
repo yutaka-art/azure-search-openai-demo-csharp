@@ -1,5 +1,8 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
+using Azure.AI.OpenAI;
+using OpenAI.Chat;
+
 namespace MinimalApi.Extensions;
 
 internal static class WebApplicationExtensions
@@ -21,7 +24,7 @@ internal static class WebApplicationExtensions
         api.MapGet("documents", OnGetDocumentsAsync);
 
         // Get DALL-E image result from prompt
-        api.MapPost("images", OnPostImagePromptAsync);
+        //api.MapPost("images", OnPostImagePromptAsync);
 
         api.MapGet("enableLogout", OnGetEnableLogout);
 
@@ -38,34 +41,39 @@ internal static class WebApplicationExtensions
 
     private static async IAsyncEnumerable<ChatChunkResponse> OnPostChatPromptAsync(
         PromptRequest prompt,
-        OpenAIClient client,
+        AzureOpenAIClient client,
         IConfiguration config,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var deploymentId = config["AZURE_OPENAI_CHATGPT_DEPLOYMENT"];
-        var response = await client.GetChatCompletionsStreamingAsync(
-            new ChatCompletionsOptions
-            {
-                DeploymentName = deploymentId,
-                Messages =
-                {
-                    new ChatRequestSystemMessage("""
-                        You're an AI assistant for developers, helping them write code more efficiently.
-                        You're name is **Blazor 📎 Clippy** and you're an expert Blazor developer.
-                        You're also an expert in ASP.NET Core, C#, TypeScript, and even JavaScript.
-                        You will always reply with a Markdown formatted response.
-                        """),
-                    new ChatRequestUserMessage("What's your name?"),
-                    new ChatRequestAssistantMessage("Hi, my name is **Blazor 📎 Clippy**! Nice to meet you."),
-                    new ChatRequestUserMessage(prompt.Prompt)
-                }
-            }, cancellationToken);
-
-        await foreach (var choice in response.WithCancellation(cancellationToken))
+        var chatClient = client.GetChatClient(deploymentId);
+        
+        var messages = new List<OpenAI.Chat.ChatMessage>
         {
-            if (choice.ContentUpdate is { Length: > 0 })
+            new SystemChatMessage("""
+                You're an AI assistant for developers, helping them write code more efficiently.
+                You're name is **Blazor 📎 Clippy** and you're an expert Blazor developer.
+                You're also an expert in ASP.NET Core, C#, TypeScript, and even JavaScript.
+                You will always reply with a Markdown formatted response.
+                """),
+            new UserChatMessage("What's your name?"),
+            new AssistantChatMessage("Hi, my name is **Blazor 📎 Clippy**! Nice to meet you."),
+            new UserChatMessage(prompt.Prompt)
+        };
+
+        var response = chatClient.CompleteChatStreamingAsync(messages, cancellationToken: cancellationToken);
+
+        await foreach (var chatUpdate in response.WithCancellation(cancellationToken))
+        {
+            if (chatUpdate.ContentUpdate.Count > 0)
             {
-                yield return new ChatChunkResponse(choice.ContentUpdate.Length, choice.ContentUpdate);
+                foreach (var contentPart in chatUpdate.ContentUpdate)
+                {
+                    if (contentPart.Text?.Length > 0)
+                    {
+                        yield return new ChatChunkResponse(contentPart.Text.Length, contentPart.Text);
+                    }
+                }
             }
         }
     }
@@ -142,18 +150,19 @@ internal static class WebApplicationExtensions
 
     private static async Task<IResult> OnPostImagePromptAsync(
         PromptRequest prompt,
-        OpenAIClient client,
+        OpenAI.OpenAIClient client,
         IConfiguration config,
         CancellationToken cancellationToken)
     {
-        var result = await client.GetImageGenerationsAsync(new ImageGenerationOptions
+        var imageClient = client.GetImageClient("dall-e-3");
+        var result = await imageClient.GenerateImageAsync(prompt.Prompt, new OpenAI.Images.ImageGenerationOptions
         {
-            Prompt = prompt.Prompt,
-        },
-        cancellationToken);
+            Size = OpenAI.Images.GeneratedImageSize.W1024xH1024,
+            Quality = OpenAI.Images.GeneratedImageQuality.Standard
+        }, cancellationToken);
 
-        var imageUrls = result.Value.Data.Select(i => i.Url).ToList();
-        var response = new ImageResponse(result.Value.Created, imageUrls);
+        var imageUrls = new List<Uri> { result.Value.ImageUri };
+        var response = new ImageResponse(DateTimeOffset.UtcNow, imageUrls);
 
         return TypedResults.Ok(response);
     }
