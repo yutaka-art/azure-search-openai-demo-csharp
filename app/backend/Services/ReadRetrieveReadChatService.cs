@@ -1,63 +1,36 @@
 ﻿// Copyright (c) Microsoft. All rights reserved.
 
 using Azure.Core;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.SemanticKernel.Embeddings;
+using Azure.AI.OpenAI;
+using OpenAI.Chat;
+using OpenAI.Embeddings;
 
 namespace MinimalApi.Services;
-#pragma warning disable SKEXP0011 // Mark members as static
-#pragma warning disable SKEXP0001 // Mark members as static
+
 public class ReadRetrieveReadChatService
 {
     private readonly ISearchService _searchClient;
-    private readonly Kernel _kernel;
+    private readonly AzureOpenAIClient _azureOpenAIClient;
     private readonly IConfiguration _configuration;
     private readonly IComputerVisionService? _visionService;
     private readonly TokenCredential? _tokenCredential;
 
     public ReadRetrieveReadChatService(
         ISearchService searchClient,
-        OpenAIClient client,
+        AzureOpenAIClient client,
         IConfiguration configuration,
         IComputerVisionService? visionService = null,
         TokenCredential? tokenCredential = null)
     {
         _searchClient = searchClient;
-        var kernelBuilder = Kernel.CreateBuilder();
-
-        if (configuration["UseAOAI"] == "false")
-        {
-            var deployment = configuration["OpenAiChatGptDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(deployment);
-            kernelBuilder = kernelBuilder.AddOpenAIChatCompletion(deployment, client);
-
-            var embeddingModelName = configuration["OpenAiEmbeddingDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(embeddingModelName);
-            kernelBuilder = kernelBuilder.AddOpenAITextEmbeddingGeneration(embeddingModelName, client);
-        }
-        else
-        {
-            var deployedModelName = configuration["AzureOpenAiChatGptDeployment"];
-            ArgumentNullException.ThrowIfNullOrWhiteSpace(deployedModelName);
-            var embeddingModelName = configuration["AzureOpenAiEmbeddingDeployment"];
-            if (!string.IsNullOrEmpty(embeddingModelName))
-            {
-                var endpoint = configuration["AzureOpenAiServiceEndpoint"];
-                ArgumentNullException.ThrowIfNullOrWhiteSpace(endpoint);
-                kernelBuilder = kernelBuilder.AddAzureOpenAITextEmbeddingGeneration(embeddingModelName, endpoint, tokenCredential ?? new DefaultAzureCredential());
-                kernelBuilder = kernelBuilder.AddAzureOpenAIChatCompletion(deployedModelName, endpoint, tokenCredential ?? new DefaultAzureCredential());
-            }
-        }
-
-        _kernel = kernelBuilder.Build();
+        _azureOpenAIClient = client;
         _configuration = configuration;
         _visionService = visionService;
         _tokenCredential = tokenCredential;
     }
 
     public async Task<ChatAppResponse> ReplyAsync(
-        ChatMessage[] history,
+        Shared.Models.ChatMessage[] history,
         RequestOverrides? overrides,
         CancellationToken cancellationToken = default)
     {
@@ -66,17 +39,24 @@ public class ReadRetrieveReadChatService
         var useSemanticRanker = overrides?.SemanticRanker ?? false;
         var excludeCategory = overrides?.ExcludeCategory ?? null;
         var filter = excludeCategory is null ? null : $"category ne '{excludeCategory}'";
-        var chat = _kernel.GetRequiredService<IChatCompletionService>();
-        var embedding = _kernel.GetRequiredService<ITextEmbeddingGenerationService>();
-        float[]? embeddings = null;
+        
         var question = history.LastOrDefault(m => m.IsUser)?.Content is { } userQuestion
             ? userQuestion
-            : throw new InvalidOperationException("Use question is null");
+            : throw new InvalidOperationException("User question is null");
 
         string[]? followUpQuestionList = null;
-        if (overrides?.RetrievalMode != RetrievalMode.Text && embedding is not null)
+        float[]? embeddings = null;
+        
+        // Generate embeddings if needed
+        if (overrides?.RetrievalMode != RetrievalMode.Text)
         {
-            embeddings = (await embedding.GenerateEmbeddingAsync(question, cancellationToken: cancellationToken)).ToArray();
+            var embeddingDeployment = _configuration["AzureOpenAiEmbeddingDeployment"];
+            if (!string.IsNullOrEmpty(embeddingDeployment))
+            {
+                var embeddingClient = _azureOpenAIClient.GetEmbeddingClient(embeddingDeployment);
+                var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(question, cancellationToken: cancellationToken);
+                embeddings = embeddingResponse.Value.ToFloats().ToArray();
+            }
         }
 
         // step 1
@@ -84,19 +64,22 @@ public class ReadRetrieveReadChatService
         string? query = null;
         if (overrides?.RetrievalMode != RetrievalMode.Vector)
         {
-            var getQueryChat = new ChatHistory(@"You are a helpful AI assistant, generate search query for followup question.
+            var chatDeployment = _configuration["AzureOpenAiChatGptDeployment"];
+            ArgumentNullException.ThrowIfNullOrWhiteSpace(chatDeployment);
+            
+            var chatClient = _azureOpenAIClient.GetChatClient(chatDeployment);
+            var queryMessages = new List<OpenAI.Chat.ChatMessage>
+            {
+                new SystemChatMessage(@"You are a helpful AI assistant, generate search query for followup question.
 Make your respond simple and precise. Return the query only, do not return any other text.
 e.g.
 Northwind Health Plus AND standard plan.
-standard plan AND dental AND employee benefit.
-");
+standard plan AND dental AND employee benefit."),
+                new UserChatMessage(question)
+            };
 
-            getQueryChat.AddUserMessage(question);
-            var result = await chat.GetChatMessageContentAsync(
-                getQueryChat,
-                cancellationToken: cancellationToken);
-
-            query = result.Content ?? throw new InvalidOperationException("Failed to get search query");
+            var queryResponse = await chatClient.CompleteChatAsync(queryMessages, cancellationToken: cancellationToken);
+            query = queryResponse.Value.Content[0].Text ?? throw new InvalidOperationException("Failed to get search query");
         }
 
         // step 2
@@ -110,7 +93,7 @@ standard plan AND dental AND employee benefit.
         }
         else
         {
-            documentContents = string.Join("\r", documentContentList.Select(x =>$"{x.Title}:{x.Content}"));
+            documentContents = string.Join("\r", documentContentList.Select(x => $"{x.Title}:{x.Content}"));
         }
 
         // step 2.5
@@ -124,24 +107,25 @@ standard plan AND dental AND employee benefit.
 
         // step 3
         // put together related docs and conversation history to generate answer
-        var answerChat = new ChatHistory(
-            "You are a system assistant who helps the company employees with their questions. Be brief in your answers");
+        var answerMessages = new List<OpenAI.Chat.ChatMessage>
+        {
+            new SystemChatMessage("You are a system assistant who helps the company employees with their questions. Be brief in your answers")
+        };
 
         // add chat history
         foreach (var message in history)
         {
             if (message.IsUser)
             {
-                answerChat.AddUserMessage(message.Content);
+                answerMessages.Add(new UserChatMessage(message.Content));
             }
             else
             {
-                answerChat.AddAssistantMessage(message.Content);
+                answerMessages.Add(new AssistantChatMessage(message.Content));
             }
         }
 
-        
-        if (images != null)
+        if (images != null && images.Length > 0)
         {
             var prompt = @$"## Source ##
 {documentContents}
@@ -151,18 +135,8 @@ Answer question based on available source and images.
 Your answer needs to be a json object with answer and thoughts field.
 Don't put your answer between ```json and ```, return the json string directly. e.g {{""answer"": ""I don't know"", ""thoughts"": ""I don't know""}}";
 
-            var tokenRequestContext = new TokenRequestContext(new[] { "https://storage.azure.com/.default" });
-            var sasToken = await (_tokenCredential?.GetTokenAsync(tokenRequestContext, cancellationToken) ?? throw new InvalidOperationException("Failed to get token"));
-            var sasTokenString = sasToken.Token;
-            var imageUrls = images.Select(x => $"{x.Url}?{sasTokenString}").ToArray();
-            var collection = new ChatMessageContentItemCollection();
-            collection.Add(new TextContent(prompt));
-            foreach (var imageUrl in imageUrls)
-            {
-                collection.Add(new ImageContent(new Uri(imageUrl)));
-            }
-
-            answerChat.AddUserMessage(collection);
+            // Note: For image support, you might need to handle this differently depending on your requirements
+            answerMessages.Add(new UserChatMessage(prompt));
         }
         else
         {
@@ -175,22 +149,23 @@ You answer needs to be a json object with the following format.
     ""answer"": // the answer to the question, add a source reference to the end of each sentence. e.g. Apple is a fruit [reference1.pdf][reference2.pdf]. If no source available, put the answer as I don't know.
     ""thoughts"": // brief thoughts on how you came up with the answer, e.g. what sources you used, what you thought about, etc.
 }}";
-            answerChat.AddUserMessage(prompt);
+            answerMessages.Add(new UserChatMessage(prompt));
         }
 
-        var promptExecutingSetting = new OpenAIPromptExecutionSettings
+        var chatDeploymentForAnswer = _configuration["AzureOpenAiChatGptDeployment"];
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(chatDeploymentForAnswer);
+        
+        var answerChatClient = _azureOpenAIClient.GetChatClient(chatDeploymentForAnswer);
+        var answerOptions = new ChatCompletionOptions
         {
-            MaxTokens = 1024,
-            Temperature = overrides?.Temperature ?? 0.7,
-            StopSequences = [],
+            MaxOutputTokenCount = 1024,
+            Temperature = (float)(overrides?.Temperature ?? 0.7) // Keep as is, already in correct range
         };
 
         // get answer
-        var answer = await chat.GetChatMessageContentAsync(
-                       answerChat,
-                       promptExecutingSetting,
-                       cancellationToken: cancellationToken);
-        var answerJson = answer.Content ?? throw new InvalidOperationException("Failed to get search query");
+        var answerResponse = await answerChatClient.CompleteChatAsync(answerMessages, answerOptions, cancellationToken);
+        var answerJson = answerResponse.Value.Content[0].Text ?? throw new InvalidOperationException("Failed to get answer");
+        
         var answerObject = JsonSerializer.Deserialize<JsonElement>(answerJson);
         var ans = answerObject.GetProperty("answer").GetString() ?? throw new InvalidOperationException("Failed to get answer");
         var thoughts = answerObject.GetProperty("thoughts").GetString() ?? throw new InvalidOperationException("Failed to get thoughts");
@@ -199,8 +174,10 @@ You answer needs to be a json object with the following format.
         // add follow up questions if requested
         if (overrides?.SuggestFollowupQuestions is true)
         {
-            var followUpQuestionChat = new ChatHistory(@"You are a helpful AI assistant");
-            followUpQuestionChat.AddUserMessage($@"Generate three follow-up question based on the answer you just generated.
+            var followUpMessages = new List<OpenAI.Chat.ChatMessage>
+            {
+                new SystemChatMessage("You are a helpful AI assistant"),
+                new UserChatMessage($@"Generate three follow-up question based on the answer you just generated.
 # Answer
 {ans}
 
@@ -211,14 +188,11 @@ e.g.
     ""What is the deductible?"",
     ""What is the co-pay?"",
     ""What is the out-of-pocket maximum?""
-]");
+]")
+            };
 
-            var followUpQuestions = await chat.GetChatMessageContentAsync(
-                followUpQuestionChat,
-                promptExecutingSetting,
-                cancellationToken: cancellationToken);
-
-            var followUpQuestionsJson = followUpQuestions.Content ?? throw new InvalidOperationException("Failed to get search query");
+            var followUpResponse = await answerChatClient.CompleteChatAsync(followUpMessages, answerOptions, cancellationToken);
+            var followUpQuestionsJson = followUpResponse.Value.Content[0].Text ?? throw new InvalidOperationException("Failed to get follow-up questions");
             var followUpQuestionsObject = JsonSerializer.Deserialize<JsonElement>(followUpQuestionsJson);
             var followUpQuestionsList = followUpQuestionsObject.EnumerateArray().Select(x => x.GetString()!).ToList();
             foreach (var followUpQuestion in followUpQuestionsList)

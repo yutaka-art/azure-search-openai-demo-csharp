@@ -7,6 +7,7 @@ internal static partial class Program
     private static DocumentAnalysisClient? s_documentClient;
     private static SearchIndexClient? s_searchIndexClient;
     private static SearchClient? s_searchClient;
+    private static AzureOpenAIClient? s_azureOpenAIClient;
     private static OpenAIClient? s_openAIClient;
 
     private static readonly SemaphoreSlim s_corpusContainerLock = new(1);
@@ -164,27 +165,34 @@ internal static partial class Program
     private static Task<OpenAIClient> GetOpenAIClientAsync(AppOptions options) =>
        GetLazyClientAsync<OpenAIClient>(options, s_openAILock, async o =>
        {
-           if (s_openAIClient is null)
+           var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI") == "true";
+           if (!useAOAI)
            {
-               var useAOAI = Environment.GetEnvironmentVariable("USE_AOAI") == "true";
-               if (!useAOAI)
+               if (s_openAIClient is null)
                {
-                     var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-                     Console.WriteLine("useAOAI value is: " + useAOAI.ToString());
-                     ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
-                     s_openAIClient = new OpenAIClient(openAIApiKey);
+                   var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+                   Console.WriteLine("useAOAI value is: " + useAOAI.ToString());
+                   ArgumentNullException.ThrowIfNullOrEmpty(openAIApiKey);
+                   s_openAIClient = new OpenAI.OpenAIClient(openAIApiKey);
                }
-               else
+               
+               await Task.CompletedTask;
+               return s_openAIClient;
+           }
+           else
+           {
+               if (s_azureOpenAIClient is null)
                {
                    var endpoint = o.AzureOpenAIServiceEndpoint;
                    ArgumentNullException.ThrowIfNullOrEmpty(endpoint);
-                   s_openAIClient = new OpenAIClient(
+                   s_azureOpenAIClient = new AzureOpenAIClient(
                        new Uri(endpoint),
                        DefaultCredential);
                }
+               
+               await Task.CompletedTask;
+               return s_azureOpenAIClient;
            }
-           await Task.CompletedTask;
-           return s_openAIClient;
        });
 
     private static async Task<TClient> GetLazyClientAsync<TClient>(

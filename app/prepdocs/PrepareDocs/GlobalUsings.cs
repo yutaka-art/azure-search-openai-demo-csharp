@@ -19,3 +19,6 @@ global using PdfSharpCore.Pdf;
 global using PdfSharpCore.Pdf.IO;
 global using PrepareDocs;
 global using Azure.AI.OpenAI;
+global using OpenAI;
+global using OpenAI.Chat;
+global using OpenAI.Embeddings;

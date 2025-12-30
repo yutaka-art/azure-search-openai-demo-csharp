@@ -44,10 +44,13 @@ public class AzureDocumentSearchServiceTest
         var searchServceEndpoint = Environment.GetEnvironmentVariable("AZURE_SEARCH_SERVICE_ENDPOINT") ?? throw new InvalidOperationException();
         var openAiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? throw new InvalidOperationException();
         var openAiEmbeddingDeployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_EMBEDDING_DEPLOYMENT") ?? throw new InvalidOperationException();
-        var openAIClient = new OpenAIClient(new Uri(openAiEndpoint), new DefaultAzureCredential());
+        var azureOpenAIClient = new AzureOpenAIClient(new Uri(openAiEndpoint), new DefaultAzureCredential());
         var query = "What is included in my Northwind Health Plus plan that is not in standard?";
-        var embeddingResponse = await openAIClient.GetEmbeddingsAsync(new EmbeddingsOptions(openAiEmbeddingDeployment, [query]));
-        var embedding = embeddingResponse.Value.Data.First().Embedding;
+        
+        var embeddingClient = azureOpenAIClient.GetEmbeddingClient(openAiEmbeddingDeployment);
+        var embeddingResponse = await embeddingClient.GenerateEmbeddingAsync(query);
+        var embedding = embeddingResponse.Value.ToFloats().Span.ToArray();
+        
         var searchClient = new SearchClient(new Uri(searchServceEndpoint), index, new DefaultAzureCredential());
         var service = new AzureSearchService(searchClient);
 
@@ -60,7 +63,7 @@ public class AzureDocumentSearchServiceTest
             SemanticRanker = true,
         };
 
-        var records = await service.QueryDocumentsAsync(query: query, embedding: embedding.ToArray(), overrides: option);
+        var records = await service.QueryDocumentsAsync(query: query, embedding: embedding, overrides: option);
         records.Count().Should().Be(3);
     }
 

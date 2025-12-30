@@ -14,6 +14,9 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
 using Shared.Models;
+using OpenAI;
+using OpenAI.Chat;
+using OpenAI.Embeddings;
 
 public sealed partial class AzureSearchEmbedService(
     OpenAIClient openAIClient,
@@ -261,12 +264,9 @@ public sealed partial class AzureSearchEmbedService(
         var rows = new List<DocumentTableCell>[table.RowCount];
         for (int i = 0; i < table.RowCount; i++)
         {
-            rows[i] =
-            [
-                .. table.Cells.Where(c => c.RowIndex == i)
-                                .OrderBy(c => c.ColumnIndex)
-,
-            ];
+            rows[i] = table.Cells.Where(c => c.RowIndex == i)
+                                  .OrderBy(c => c.ColumnIndex)
+                                  .ToList();
         }
 
         foreach (var rowCells in rows)
@@ -445,12 +445,17 @@ public sealed partial class AzureSearchEmbedService(
 
     private async Task IndexSectionsAsync(IEnumerable<Section> sections)
     {
+        var embeddingClient = openAIClient.GetEmbeddingClient(embeddingModelName);
+
         var iteration = 0;
         var batch = new IndexDocumentsBatch<SearchDocument>();
         foreach (var section in sections)
         {
-            var embeddings = await openAIClient.GetEmbeddingsAsync(new Azure.AI.OpenAI.EmbeddingsOptions(embeddingModelName, [section.Content.Replace('\r', ' ')]));
-            var embedding = embeddings.Value.Data.FirstOrDefault()?.Embedding.ToArray() ?? [];
+            var text = section.Content.Replace('\r', ' ');
+
+            OpenAI.Embeddings.OpenAIEmbedding embedding = await embeddingClient.GenerateEmbeddingAsync(text);
+            float[] vector = embedding.ToFloats().Span.ToArray();
+
             batch.Actions.Add(new IndexDocumentsAction<SearchDocument>(
                 IndexActionType.MergeOrUpload,
                 new SearchDocument
@@ -460,7 +465,7 @@ public sealed partial class AzureSearchEmbedService(
                     ["category"] = section.Category,
                     ["sourcepage"] = section.SourcePage,
                     ["sourcefile"] = section.SourceFile,
-                    ["embedding"] = embedding,
+                    ["embedding"] = vector,
                 }));
 
             iteration++;
